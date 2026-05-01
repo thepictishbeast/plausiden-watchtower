@@ -1,13 +1,24 @@
-//! Alert sinks. The trait is the contract; implementations land in #316
-//! (ntfy + email). For #315 we ship the trait, a `Logger` sink that just
-//! writes to tracing (so the daemon is testable end-to-end), and a
-//! `MultiSink` that fans out to N sinks with per-sink failure isolation.
+//! Alert sinks. The trait is the contract; implementations live in
+//! sibling modules:
+//!
+//! - [`LoggerSink`] (always-on baseline — writes to tracing).
+//! - [`ntfy::NtfySink`] (#316) — push to ntfy server.
+//! - [`email::EmailSink`] (#316) — `Page`-severity-only postfix mail
+//!   with per-(rule,key) dedup + daily cap.
+//!
+//! [`MultiSink`] fans out to N sinks with per-sink failure isolation:
+//! a single failing sink does not suppress the others, and partial
+//! delivery is preferred to silent drop.
 
 use async_trait::async_trait;
 use serde::Serialize;
 use thiserror::Error;
 
 use crate::classify::Alert;
+
+pub mod email;
+pub mod ntfy;
+pub mod rate_limit;
 
 #[derive(Debug, Error)]
 pub enum SinkError {

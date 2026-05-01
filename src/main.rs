@@ -11,7 +11,7 @@
 use chrono::Utc;
 #[cfg(feature = "journal")]
 use plausiden_watchtower::{
-    alert::{AlertSink, LoggerSink, MultiSink},
+    alert::{email::EmailSink, ntfy::NtfySink, AlertSink, LoggerSink, MultiSink},
     classify::Classifier,
     journal,
     parse::parse_line,
@@ -43,17 +43,53 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("WATCHTOWER_UNITS empty — refusing to start".into());
     }
 
-    // For #315 the only sink is LoggerSink. #316 adds ntfy + email and
-    // promotes the "at least one sink" check from a no-op to an
-    // operational gate.
-    let sinks = MultiSink::new(vec![Box::new(LoggerSink)]);
+    // Sinks: LoggerSink is always-on (so alerts never silently drop
+    // even with broken env). NtfySink + EmailSink turn on when their
+    // env vars are present. All three pass through MultiSink with
+    // per-sink failure isolation.
+    let mut sinks_vec: Vec<Box<dyn AlertSink>> = Vec::new();
+    sinks_vec.push(Box::new(LoggerSink));
+
+    let mut active_sink_names: Vec<&'static str> = vec!["logger"];
+    match NtfySink::from_env() {
+        Ok(Some(s)) => {
+            sinks_vec.push(Box::new(s));
+            active_sink_names.push("ntfy");
+        }
+        Ok(None) => {
+            tracing::info!(
+                "ntfy disabled (set NTFY_URL + WATCHTOWER_NTFY_TOPIC to enable)"
+            );
+        }
+        Err(e) => {
+            return Err(format!("ntfy sink misconfigured: {e}").into());
+        }
+    }
+    match EmailSink::from_env() {
+        Ok(Some(s)) => {
+            sinks_vec.push(Box::new(s));
+            active_sink_names.push("email");
+        }
+        Ok(None) => {
+            tracing::info!(
+                "email disabled (set WATCHTOWER_EMAIL_TO to enable; only Page-severity alerts \
+                 trigger email per feedback_email_important_items)"
+            );
+        }
+        Err(e) => {
+            return Err(format!("email sink misconfigured: {e}").into());
+        }
+    }
+
+    let sinks = MultiSink::new(sinks_vec);
     if sinks.is_empty() {
         return Err("no alert sinks configured — refusing to start".into());
     }
 
     tracing::info!(
         units = ?units,
-        sinks = sinks.len(),
+        sink_count = sinks.len(),
+        sinks = ?active_sink_names,
         "watchtower starting"
     );
 

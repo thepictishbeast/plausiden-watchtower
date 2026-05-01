@@ -20,8 +20,9 @@ with one, they become a live early-warning system.
 | Severity classifier      | Shipped  | #315  |
 | Threshold rules engine   | Shipped  | #315  |
 | Journal reader (live)    | Shipped  | #315  |
-| ntfy alert sink          | Stubbed  | #316  |
-| Email alert sink         | Stubbed  | #316  |
+| ntfy alert sink          | Shipped  | #316  |
+| Email alert sink         | Shipped  | #316  |
+| Token-bucket rate-limit  | Shipped  | #316  |
 | Auto-Claude fix loop     | Pending  | #317  |
 | Self-monitoring pings    | Pending  | #317  |
 
@@ -59,13 +60,43 @@ Parsed as:
 (Requires `journal` feature.)
 
 ```sh
-cargo run --features journal --release -- \
-  --units sacredvote,sacredvote-identity,sacredvote-zktls \
-  --ntfy-topic <topic> \
-  --email william@plausiden.com
+cargo run --features journal --release
 ```
 
-The daemon will refuse to start without at least one configured alert sink.
+`LoggerSink` is always-on so the daemon never silently drops alerts.
+ntfy and email turn on when their env vars are set.
+
+### Configuration (env vars)
+
+| Var                            | Required | Default                        | Effect                                                                |
+|--------------------------------|----------|--------------------------------|-----------------------------------------------------------------------|
+| `WATCHTOWER_UNITS`             | no       | every Sacred Vote service      | comma-separated systemd units to tail                                 |
+| `JOURNALCTL_BIN`               | no       | `journalctl`                   | path override (used in tests)                                         |
+| `NTFY_URL`                     | yes¹     | —                              | full URL of the ntfy server (e.g. `http://127.0.0.1:8090`)            |
+| `WATCHTOWER_NTFY_TOPIC`        | no       | `sacredvote-watchtower`        | topic to POST to                                                      |
+| `NTFY_TOKEN`                   | no       | —                              | bearer token, required against the production ntfy server             |
+| `WATCHTOWER_NTFY_RATE_PER_MIN` | no       | `10`                           | token-bucket capacity per minute                                      |
+| `WATCHTOWER_EMAIL_TO`          | yes²     | —                              | recipient (`Page` severity only)                                      |
+| `WATCHTOWER_EMAIL_FROM`        | no       | `alerts@sacredvote.org`        | envelope sender (NEVER `tim@sacred.vote`)                             |
+| `WATCHTOWER_EMAIL_BIN`         | no       | `mail`                         | path to `mail`-compatible binary                                      |
+
+¹ Required only to *enable* the ntfy sink. Absent → ntfy disabled, daemon still runs.
+² Required only to *enable* the email sink. Absent → email disabled, daemon still runs.
+
+### Email policy
+
+Strict ceiling per `feedback_email_important_items.md`:
+
+- **Severity gate:** only `Page` alerts trigger email. `Warn` and `Info`
+  never do, regardless of count.
+- **Per-(rule,key) dedup:** once an email goes out for a given (rule,
+  key), the next 6h are suppressed. The repeat is logged at info-level
+  in the daemon's tracing output but does not page.
+- **Daily cap:** at most 4 emails in any rolling 24h, regardless of
+  dedup state. Fifth `Page` is logged + dropped.
+
+The intent is that an email landing in the inbox means "drop everything"
+— not "we shipped a thing".
 
 ## Building without the journal feature
 
