@@ -1,0 +1,33 @@
+[package]
+name = "plausiden-watchtower"
+version = "0.1.0"
+edition = "2021"
+license = "BSL-1.1"
+repository = "https://github.com/thepictishbeast/plausiden-watchtower"
+description = "Tails per-chain structured logs from PlausiDen services, classifies issues, and dispatches alerts. Foundation for #316 (ntfy/email sinks) and #317 (auto-fix loop)."
+readme = "README.md"
+
+[features]
+default = []
+# Live journald reader (sidecar runs on the VPS). Off by default so the
+# parser/classifier libs build on dev machines without libsystemd.
+journal = ["tokio/process", "tokio/io-util"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+async-trait = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "test-util"] }
+
+[[bin]]
+name = "plausiden-watchtower"
+path = "src/main.rs"
+required-features = ["journal"]
