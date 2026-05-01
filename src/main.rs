@@ -11,7 +11,10 @@
 use chrono::Utc;
 #[cfg(feature = "journal")]
 use plausiden_watchtower::{
-    alert::{email::EmailSink, ntfy::NtfySink, AlertSink, LoggerSink, MultiSink},
+    alert::{
+        auto_claude::AutoClaudeSink, email::EmailSink, ntfy::NtfySink, AlertSink, LoggerSink,
+        MultiSink,
+    },
     classify::Classifier,
     journal,
     parse::parse_line,
@@ -78,6 +81,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Err(e) => {
             return Err(format!("email sink misconfigured: {e}").into());
+        }
+    }
+    match AutoClaudeSink::from_env() {
+        Ok(Some(s)) => {
+            sinks_vec.push(Box::new(s));
+            active_sink_names.push("auto_claude");
+        }
+        Ok(None) => {
+            tracing::info!(
+                "auto-claude disabled (set WATCHTOWER_AUTO_CLAUDE_ENABLE=1 + WATCHTOWER_AUTO_CLAUDE_RULES=… \
+                 + WATCHTOWER_AUTO_CLAUDE_PROJECT_<CHAIN>=… to enable; default-OFF per \
+                 feedback_features_behind_paywall)"
+            );
+        }
+        Err(e) => {
+            return Err(format!("auto-claude sink misconfigured: {e}").into());
         }
     }
 

@@ -83,6 +83,40 @@ ntfy and email turn on when their env vars are set.
 ¹ Required only to *enable* the ntfy sink. Absent → ntfy disabled, daemon still runs.
 ² Required only to *enable* the email sink. Absent → email disabled, daemon still runs.
 
+### Auto-Claude sink (#317) — default-OFF
+
+Spawns a headless `claude -p` process against an isolated git worktree
+when a whitelisted alert fires. Default-OFF per
+`feedback_features_behind_paywall`; enable with:
+
+| Var                                           | Required | Default                                   | Notes |
+|---|---|---|---|
+| `WATCHTOWER_AUTO_CLAUDE_ENABLE`               | yes      | unset                                     | gate; set to `1`/`true`/`yes`/`on` to enable |
+| `WATCHTOWER_AUTO_CLAUDE_RULES`                | yes      | —                                         | comma-separated rule whitelist (e.g. `fatal_any,error_burst_per_chain`); only these spawn Claude |
+| `WATCHTOWER_AUTO_CLAUDE_PROJECT_<CHAIN>`      | yes ≥1   | —                                         | per-chain repo path (e.g. `WATCHTOWER_AUTO_CLAUDE_PROJECT_REGISTER=/srv/sacredvote`) |
+| `WATCHTOWER_AUTO_CLAUDE_BIN`                  | no       | `claude`                                  | path to the Claude CLI |
+| `WATCHTOWER_AUTO_CLAUDE_INCIDENT_DIR`         | no       | `/var/lib/plausiden-watchtower/incidents` | per-incident transcript files |
+| `WATCHTOWER_AUTO_CLAUDE_WORKTREE_BASE`        | no       | `/var/lib/plausiden-watchtower/worktrees` | per-incident `git worktree add` target |
+| `WATCHTOWER_AUTO_CLAUDE_MAX_CONCURRENT`       | no       | `1`                                       | hard cap on in-flight Claude processes |
+
+**Safety properties:**
+
+- **Whitelist-only firing.** Rules outside `WATCHTOWER_AUTO_CLAUDE_RULES`
+  are logged at `debug` and dropped. Per the user's directive: "refuse to
+  wake Claude on unknowns to avoid runaway spend."
+- **Chain → project map required.** Alerts whose `chain` is not in any
+  `WATCHTOWER_AUTO_CLAUDE_PROJECT_*` env var are dropped (no path
+  guessing).
+- **Concurrency cap.** When the semaphore is saturated the alert is
+  logged + skipped, **not queued**. Queueing would let a burst backlog
+  hours of Claude time.
+- **Isolated worktree.** Each spawn runs `git worktree add --detach` so
+  the live working tree is never touched. Worktrees are not auto-cleaned;
+  the operator reviews/merges/discards each one explicitly.
+- **Per-incident transcript.** stdout + stderr stream to a unique file
+  in `incident_dir` so the operator can reconstruct what Claude did
+  even if the daemon restarts mid-run.
+
 ### Email policy
 
 Strict ceiling per `feedback_email_important_items.md`:

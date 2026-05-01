@@ -24,7 +24,7 @@ chrono = { version = "0.4", features = ["serde"] }
 regex = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "process", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "process", "io-util", "fs"] }
 async-trait = "0.1"
 # rustls-tls so we never link OpenSSL (one less attack surface), `json`
 # is unused (ntfy speaks plain text bodies) and pulled out to keep the

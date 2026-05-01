@@ -5,6 +5,9 @@
 //! - [`ntfy::NtfySink`] (#316) — push to ntfy server.
 //! - [`email::EmailSink`] (#316) — `Page`-severity-only postfix mail
 //!   with per-(rule,key) dedup + daily cap.
+//! - [`auto_claude::AutoClaudeSink`] (#317) — spawns headless Claude
+//!   against an isolated git worktree on whitelisted rule classes only.
+//!   Default-OFF.
 //!
 //! [`MultiSink`] fans out to N sinks with per-sink failure isolation:
 //! a single failing sink does not suppress the others, and partial
@@ -16,6 +19,7 @@ use thiserror::Error;
 
 use crate::classify::Alert;
 
+pub mod auto_claude;
 pub mod email;
 pub mod ntfy;
 pub mod rate_limit;
