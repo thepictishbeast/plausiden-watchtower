@@ -44,8 +44,8 @@ with one, they become a live early-warning system.
 | ntfy alert sink          | Shipped  | #316  |
 | Email alert sink         | Shipped  | #316  |
 | Token-bucket rate-limit  | Shipped  | #316  |
-| Auto-Claude fix loop     | Pending  | #317  |
-| Self-monitoring pings    | Pending  | #317  |
+| Auto-Claude fix loop     | Shipped  | #317  |
+| Self-monitoring pings    | Shipped  | #318  |
 
 ## Log-line format
 
@@ -137,6 +137,41 @@ when a whitelisted alert fires. Default-OFF per
 - **Per-incident transcript.** stdout + stderr stream to a unique file
   in `incident_dir` so the operator can reconstruct what Claude did
   even if the daemon restarts mid-run.
+
+### Self-monitoring heartbeat (#318)
+
+The daemon writes a heartbeat file every interval; an external
+`scripts/watchtower-staleness-check.sh` (run from a separate systemd
+timer or cron) pages via ntfy if the file's mtime exceeds the
+staleness threshold. The daemon CANNOT alert on its own death — this
+is the load-bearing fallback.
+
+| Var                                    | Required | Default                                       | Effect                                                          |
+|---|---|---|---|
+| `WATCHTOWER_HEARTBEAT_PATH`            | no       | `/var/lib/plausiden-watchtower/heartbeat`     | file path written by the daemon                                 |
+| `WATCHTOWER_HEARTBEAT_INTERVAL_SECS`   | no       | `60` (clamp `[10, 600]`)                      | how often the daemon writes; out-of-range falls back to default |
+| `WATCHTOWER_HEARTBEAT_STALE_SECS`      | no       | `300`                                         | external script's threshold (alert when mtime older than this)  |
+
+The file body is human-readable `key=value` lines (`timestamp`, `uptime_secs`,
+`events_seen`) so `cat /var/lib/plausiden-watchtower/heartbeat` is a
+useful liveness probe on its own. The external detector reads ONLY
+the file's mtime via `stat -c %Y`, so the body format can evolve
+without breaking the contract.
+
+Recommended systemd timer for the detector:
+
+```ini
+# /etc/systemd/system/watchtower-staleness-check.timer
+[Unit]
+Description=plausiden-watchtower staleness check
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+
+[Install]
+WantedBy=timers.target
+```
 
 ### Email policy
 

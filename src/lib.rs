@@ -38,6 +38,7 @@
 pub mod alert;
 pub mod classify;
 pub mod parse;
+pub mod self_monitor;
 
 #[cfg(feature = "journal")]
 pub mod journal;
@@ -45,3 +46,4 @@ pub mod journal;
 pub use alert::{AlertSink, LoggerSink, MultiSink, SinkError};
 pub use classify::{Alert, Classifier, Severity};
 pub use parse::{parse_line, Level, LogEvent, StructuredEvent};
+pub use self_monitor::{HeartbeatConfig, HeartbeatCounter};

@@ -18,6 +18,7 @@ use plausiden_watchtower::{
     classify::Classifier,
     journal,
     parse::parse_line,
+    self_monitor::{self, HeartbeatConfig, HeartbeatCounter},
 };
 
 #[cfg(feature = "journal")]
@@ -60,9 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             active_sink_names.push("ntfy");
         }
         Ok(None) => {
-            tracing::info!(
-                "ntfy disabled (set NTFY_URL + WATCHTOWER_NTFY_TOPIC to enable)"
-            );
+            tracing::info!("ntfy disabled (set NTFY_URL + WATCHTOWER_NTFY_TOPIC to enable)");
         }
         Err(e) => {
             return Err(format!("ntfy sink misconfigured: {e}").into());
@@ -105,10 +104,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("no alert sinks configured — refusing to start".into());
     }
 
+    // Self-monitoring heartbeat. Writes a file every interval; an
+    // external systemd timer running scripts/watchtower-staleness-check.sh
+    // pages via ntfy if the file's mtime exceeds the staleness threshold.
+    // The daemon CANNOT alert on its own death — this is the fallback.
+    let heartbeat_config = HeartbeatConfig::from_env();
+    let heartbeat_counter = HeartbeatCounter::new();
+    let heartbeat_handle = tokio::spawn(self_monitor::run(
+        heartbeat_config.clone(),
+        heartbeat_counter.clone(),
+    ));
+
     tracing::info!(
         units = ?units,
         sink_count = sinks.len(),
         sinks = ?active_sink_names,
+        heartbeat_path = %heartbeat_config.path.display(),
+        heartbeat_interval_secs = heartbeat_config.interval.as_secs(),
         "watchtower starting"
     );
 
@@ -116,6 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut rx = journal::spawn(units, None)?;
 
     while let Some((unit, raw)) = rx.recv().await {
+        heartbeat_counter.increment();
         let event = parse_line(&raw);
         let alerts = classifier.ingest(&event, Utc::now());
         for alert in alerts {
@@ -133,6 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     tracing::warn!("journal channel closed — watchtower exiting");
+    heartbeat_handle.abort();
     Ok(())
 }
 
