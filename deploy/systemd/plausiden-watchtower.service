@@ -1,0 +1,90 @@
+# plausiden-watchtower — log monitor + alert + auto-fix loop.
+#
+# Drop into /etc/systemd/system/, then:
+#   systemctl daemon-reload
+#   systemctl enable --now plausiden-watchtower
+#
+# Service runs as a dedicated unprivileged user `watchtower` in the
+# `systemd-journal` supplementary group (needed to read service
+# journals via the spawned `journalctl -f` subprocesses).
+#
+# Binary at /opt/plausiden-watchtower/bin/plausiden-watchtower.
+# Heartbeat + incident + worktree state at /var/lib/plausiden-watchtower/.
+# Logs to journal under the unit name; no separate file logging.
+
+[Unit]
+Description=PlausiDen Watchtower (#315) — log tailer + alerter + auto-fix loop
+Documentation=https://github.com/thepictishbeast/plausiden-watchtower
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=watchtower
+Group=watchtower
+# systemd-journal group lets `journalctl -f` see other services' logs.
+SupplementaryGroups=systemd-journal
+
+ExecStart=/opt/plausiden-watchtower/bin/plausiden-watchtower
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=10s
+
+# Env defaults — operator overrides via the EnvironmentFile below.
+# Required to enable ntfy / email / AutoClaude sinks; absent = those
+# sinks stay OFF, daemon still runs (LoggerSink is always-on).
+Environment="RUST_LOG=plausiden_watchtower=info,warn"
+Environment="WATCHTOWER_HEARTBEAT_PATH=/var/lib/plausiden-watchtower/heartbeat"
+Environment="WATCHTOWER_HEARTBEAT_INTERVAL_SECS=60"
+EnvironmentFile=-/etc/plausiden-watchtower/env
+
+# Systemd hardening — same baseline as the civic-news sidecar.
+# WATCHED: AutoClaude (when enabled) needs to fork `git worktree add`
+# and `claude -p`, which means we CAN'T enable extreme syscall
+# filtering or fully read-only FS. Per-iter defaults below are tight
+# enough to block lateral movement but loose enough that the auto-fix
+# loop works.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@mount @debug @cpu-emulation @obsolete @swap @raw-io @reboot
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Network — daemon needs outbound HTTPS for ntfy + outbound SMTP via
+# the `mail` binary; doesn't bind any listening port itself.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+IPAddressAllow=any
+
+# Resource limits — keep tight; the daemon's heaviest workload is
+# token-bucket rate-limited alerts + occasional AutoClaude forks
+# (which are themselves bounded by WATCHTOWER_AUTO_CLAUDE_MAX_CONCURRENT).
+MemoryMax=512M
+TasksMax=128
+CPUQuota=50%
+LimitNOFILE=4096
+
+# Writable paths — heartbeat file, incident transcripts, worktrees.
+# AutoClaude (default-OFF) populates the latter two when enabled.
+ReadWritePaths=/var/lib/plausiden-watchtower
+
+[Install]
+WantedBy=multi-user.target

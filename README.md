@@ -198,3 +198,39 @@ cargo test --lib
 ```
 
 This is the path used in CI and on dev laptops.
+
+## Production deployment (systemd)
+
+Drop-in installer at `deploy/install.sh`. Idempotent: re-running just
+refreshes the binary + restarts. Safe after `git pull`.
+
+```sh
+sudo ./deploy/install.sh
+```
+
+Installs:
+- `/opt/plausiden-watchtower/bin/plausiden-watchtower` — release binary
+  built with `--features journal`
+- `/etc/systemd/system/plausiden-watchtower.service` — hardened unit
+  (see `deploy/systemd/plausiden-watchtower.service` for the full
+  systemd directive list; mirrors the civic-news sidecar baseline)
+- `/etc/plausiden-watchtower/env` — operator env-overrides file (only
+  installed if missing; commented template lists every supported var)
+- `/var/lib/plausiden-watchtower/` — heartbeat file + AutoClaude
+  incident + worktree dirs (owned by the `watchtower` system user)
+- `watchtower` system user added to the `systemd-journal` supplementary
+  group so the spawned `journalctl -f` subprocesses can see other
+  services' logs
+
+After install, edit `/etc/plausiden-watchtower/env` to enable the ntfy
+and email sinks, then set up the **external** stale-detector from
+`scripts/watchtower-staleness-check.sh` on a separate systemd timer
+(see the `Self-monitoring heartbeat (#318)` section above for the
+recommended `.timer` recipe). The daemon CANNOT alert on its own
+death from inside itself — the external detector is load-bearing.
+
+Tail the daemon:
+
+```sh
+journalctl -u plausiden-watchtower -f
+```

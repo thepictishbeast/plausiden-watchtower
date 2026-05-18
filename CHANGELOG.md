@@ -10,6 +10,21 @@ no commit has reached `SHIP-DECISION:` status yet).
 
 ## [Unreleased]
 
+### Added (LOOP-V3.1#89)
+- `deploy/systemd/plausiden-watchtower.service` — hardened systemd
+  unit. Dedicated `watchtower` system user with
+  `SupplementaryGroups=systemd-journal` so the spawned `journalctl -f`
+  subprocesses can read other services' journals. Resource caps
+  (512 MiB / 50 % CPU / 128 tasks); the typical `@system-service`
+  syscall filter narrowed by `~@mount @debug @cpu-emulation
+  @obsolete @swap @raw-io @reboot`. `ReadWritePaths=/var/lib/plausiden-watchtower`
+  is the ONLY writable path.
+- `deploy/install.sh` — idempotent installer. Builds the release
+  binary with `--features journal`, creates the service user, adds
+  it to `systemd-journal`, lays down the binary + state dirs + a
+  commented env-file template, installs the unit, then
+  daemon-reload + enable + restart.
+
 ### Changed
 - Repository hygiene pass (LOOP-V3.1#72, #81): `cargo fmt --check` clean
   across all modules + `cargo audit` baseline established (173 deps /
