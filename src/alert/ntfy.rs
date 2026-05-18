@@ -181,7 +181,10 @@ impl AlertSink for NtfySink {
         let mut req = self
             .client
             .post(&endpoint)
-            .header("Title", format!("{} watchtower: {}", title_prefix, alert.rule))
+            .header(
+                "Title",
+                format!("{} watchtower: {}", title_prefix, alert.rule),
+            )
             .header("Priority", priority)
             .header("Tags", format!("rotating_light,{}", chain_tag))
             .body(body);

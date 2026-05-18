@@ -56,10 +56,7 @@ impl EmailSink {
             to: to.into(),
             from: from.into(),
             bin: bin.into(),
-            daily_bucket: Mutex::new(TokenBucket::new(
-                DAILY_CAP,
-                Duration::from_secs(24 * 3600),
-            )),
+            daily_bucket: Mutex::new(TokenBucket::new(DAILY_CAP, Duration::from_secs(24 * 3600))),
             dedup: Mutex::new(DedupCache::new(Duration::from_secs(DEDUP_HOURS * 3600))),
         }
     }

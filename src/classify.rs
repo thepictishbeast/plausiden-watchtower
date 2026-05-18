@@ -291,7 +291,10 @@ mod tests {
         }
         // 5th reg fires; zktls must NOT.
         let alerts = c.ingest(&structured(reg_line), now + Duration::seconds(5));
-        let burst: Vec<_> = alerts.iter().filter(|a| a.rule == "error_burst_per_chain").collect();
+        let burst: Vec<_> = alerts
+            .iter()
+            .filter(|a| a.rule == "error_burst_per_chain")
+            .collect();
         assert_eq!(burst.len(), 1);
         assert_eq!(burst[0].key, "registration");
     }
@@ -313,7 +316,9 @@ mod tests {
     fn unstructured_lines_produce_no_alerts() {
         let mut c = Classifier::new();
         let alerts = c.ingest(
-            &LogEvent::Unstructured { raw: "kernel: oom-killer".into() },
+            &LogEvent::Unstructured {
+                raw: "kernel: oom-killer".into(),
+            },
             t("2026-05-01T12:00:00Z"),
         );
         assert!(alerts.is_empty());

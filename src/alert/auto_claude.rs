@@ -62,7 +62,9 @@ const DEFAULT_MAX_CONCURRENT: usize = 1;
 
 #[derive(Debug, Error)]
 pub enum AutoClaudeConfigError {
-    #[error("WATCHTOWER_AUTO_CLAUDE_RULES is empty — refusing to enable a sink that would never fire")]
+    #[error(
+        "WATCHTOWER_AUTO_CLAUDE_RULES is empty — refusing to enable a sink that would never fire"
+    )]
     EmptyRules,
     #[error("WATCHTOWER_AUTO_CLAUDE_MAX_CONCURRENT must be >= 1 (got {0})")]
     BadConcurrency(usize),
@@ -99,7 +101,8 @@ impl AutoClaudeSink {
     /// the gate variable is unset (default-OFF state). Returns `Err` if
     /// the gate is on but the configuration is incoherent.
     pub fn from_env() -> Result<Option<Self>, AutoClaudeConfigError> {
-        let enabled = std::env::var(ENV_ENABLE).ok()
+        let enabled = std::env::var(ENV_ENABLE)
+            .ok()
             .map(|v| matches!(v.as_str(), "1" | "true" | "yes" | "on"))
             .unwrap_or(false);
         if !enabled {
@@ -280,11 +283,7 @@ impl AutoClaudeSink {
     /// We do not block dispatch on Claude's exit: a fix run can take
     /// minutes, and the watchtower event loop must keep ingesting logs.
     /// The spawned task owns the permit; releasing it on completion.
-    async fn spawn_claude(
-        &self,
-        alert: &Alert,
-        project: &Path,
-    ) -> Result<(), SinkError> {
+    async fn spawn_claude(&self, alert: &Alert, project: &Path) -> Result<(), SinkError> {
         let permit = match Arc::clone(&self.permits).try_acquire_owned() {
             Ok(p) => p,
             Err(_) => {
@@ -336,8 +335,10 @@ impl AutoClaudeSink {
             }
 
             let wt = Command::new("git")
-                .arg("-C").arg(&project)
-                .arg("worktree").arg("add")
+                .arg("-C")
+                .arg(&project)
+                .arg("worktree")
+                .arg("add")
                 .arg("--detach")
                 .arg(&worktree_path)
                 .stdout(Stdio::piped())
@@ -361,8 +362,10 @@ impl AutoClaudeSink {
             }
 
             let mut cmd = Command::new(&bin);
-            cmd.arg("-p").arg(&prompt)
-                .arg("--add-dir").arg(&worktree_path)
+            cmd.arg("-p")
+                .arg(&prompt)
+                .arg("--add-dir")
+                .arg(&worktree_path)
                 .current_dir(&worktree_path)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
@@ -427,10 +430,7 @@ async fn stream_to_file(
     path: &Path,
     label: &str,
 ) {
-    let file = fs::OpenOptions::new()
-        .append(true)
-        .open(path)
-        .await;
+    let file = fs::OpenOptions::new().append(true).open(path).await;
     let mut file = match file {
         Ok(f) => f,
         Err(e) => {
@@ -485,6 +485,13 @@ mod tests {
     use super::*;
     use crate::classify::Severity;
     use crate::parse::{Level, StructuredEvent};
+
+    // Serializes env-mutating tests so they cannot race over the
+    // process-global env vars. `from_env_default_off` and
+    // `from_env_enable_without_rules_errors` both touch ENV_ENABLE;
+    // without this lock cargo test's parallel scheduler corrupts their
+    // state.
+    static ENV_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     fn alert_with(rule: &str, chain: Option<&str>) -> Alert {
         Alert {
@@ -585,6 +592,9 @@ mod tests {
 
     #[test]
     fn from_env_default_off() {
+        let _g = ENV_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
         std::env::remove_var(ENV_ENABLE);
         let res = AutoClaudeSink::from_env().unwrap();
         assert!(res.is_none(), "must default OFF when gate is unset");
@@ -592,6 +602,9 @@ mod tests {
 
     #[test]
     fn from_env_enable_without_rules_errors() {
+        let _g = ENV_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
         std::env::set_var(ENV_ENABLE, "1");
         std::env::remove_var(ENV_RULES);
         // Need at least one project to isolate the rules-empty check.

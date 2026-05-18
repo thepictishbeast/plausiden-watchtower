@@ -204,7 +204,10 @@ mod tests {
         assert_eq!(DEFAULT_INTERVAL_SECS, 60);
         assert_eq!(MIN_INTERVAL_SECS, 10);
         assert_eq!(MAX_INTERVAL_SECS, 600);
-        assert_eq!(DEFAULT_HEARTBEAT_PATH, "/var/lib/plausiden-watchtower/heartbeat");
+        assert_eq!(
+            DEFAULT_HEARTBEAT_PATH,
+            "/var/lib/plausiden-watchtower/heartbeat"
+        );
     }
 
     #[test]

@@ -110,7 +110,8 @@ mod tests {
 
     #[test]
     fn parses_journal_line_struct() {
-        let raw = r#"{"MESSAGE":"hello world","_SYSTEMD_UNIT":"sacredvote.service","other":"ignored"}"#;
+        let raw =
+            r#"{"MESSAGE":"hello world","_SYSTEMD_UNIT":"sacredvote.service","other":"ignored"}"#;
         let parsed: JournalLine = serde_json::from_str(raw).unwrap();
         assert_eq!(parsed.message.as_deref(), Some("hello world"));
         assert_eq!(parsed.unit.as_deref(), Some("sacredvote.service"));

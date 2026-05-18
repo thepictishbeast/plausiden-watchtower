@@ -195,8 +195,16 @@ mod tests {
     async fn multisink_dispatches_to_all() {
         let count = Arc::new(AtomicUsize::new(0));
         let sinks: Vec<Box<dyn AlertSink>> = vec![
-            Box::new(CountingSink { name_: "a".into(), count: count.clone(), fail: false }),
-            Box::new(CountingSink { name_: "b".into(), count: count.clone(), fail: false }),
+            Box::new(CountingSink {
+                name_: "a".into(),
+                count: count.clone(),
+                fail: false,
+            }),
+            Box::new(CountingSink {
+                name_: "b".into(),
+                count: count.clone(),
+                fail: false,
+            }),
         ];
         let multi = MultiSink::new(sinks);
         multi.dispatch(&sample_alert()).await.unwrap();
@@ -207,8 +215,16 @@ mod tests {
     async fn multisink_partial_failure_is_ok() {
         let count = Arc::new(AtomicUsize::new(0));
         let sinks: Vec<Box<dyn AlertSink>> = vec![
-            Box::new(CountingSink { name_: "ok".into(), count: count.clone(), fail: false }),
-            Box::new(CountingSink { name_: "fail".into(), count: count.clone(), fail: true }),
+            Box::new(CountingSink {
+                name_: "ok".into(),
+                count: count.clone(),
+                fail: false,
+            }),
+            Box::new(CountingSink {
+                name_: "fail".into(),
+                count: count.clone(),
+                fail: true,
+            }),
         ];
         let multi = MultiSink::new(sinks);
         // 1 of 2 fails — overall result is Ok (partial delivery preferred).
@@ -220,8 +236,16 @@ mod tests {
     async fn multisink_total_failure_returns_err() {
         let count = Arc::new(AtomicUsize::new(0));
         let sinks: Vec<Box<dyn AlertSink>> = vec![
-            Box::new(CountingSink { name_: "a".into(), count: count.clone(), fail: true }),
-            Box::new(CountingSink { name_: "b".into(), count: count.clone(), fail: true }),
+            Box::new(CountingSink {
+                name_: "a".into(),
+                count: count.clone(),
+                fail: true,
+            }),
+            Box::new(CountingSink {
+                name_: "b".into(),
+                count: count.clone(),
+                fail: true,
+            }),
         ];
         let multi = MultiSink::new(sinks);
         let res = multi.dispatch(&sample_alert()).await;
