@@ -10,7 +10,7 @@ no commit has reached `SHIP-DECISION:` status yet).
 
 ## [Unreleased]
 
-### Added (LOOP-V3.1#89)
+### Added (LOOP-V3.1#89, #90)
 - `deploy/systemd/plausiden-watchtower.service` — hardened systemd
   unit. Dedicated `watchtower` system user with
   `SupplementaryGroups=systemd-journal` so the spawned `journalctl -f`
@@ -24,6 +24,11 @@ no commit has reached `SHIP-DECISION:` status yet).
   it to `systemd-journal`, lays down the binary + state dirs + a
   commented env-file template, installs the unit, then
   daemon-reload + enable + restart.
+- `deploy/uninstall.sh` (#90) — companion teardown. Idempotent.
+  Preserves state (`/var/lib/plausiden-watchtower` — incident
+  transcripts, AutoClaude worktrees, heartbeat) AND operator config
+  (`/etc/plausiden-watchtower/env`) by default; override with
+  `PURGE_STATE=1` / `PURGE_CONFIG=1` / `REMOVE_USER=1`.
 
 ### Changed
 - Repository hygiene pass (LOOP-V3.1#72, #81): `cargo fmt --check` clean

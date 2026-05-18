@@ -234,3 +234,17 @@ Tail the daemon:
 ```sh
 journalctl -u plausiden-watchtower -f
 ```
+
+To remove, pair `deploy/uninstall.sh` with one or more of these env
+overrides (idempotent; preserves state + config by default to protect
+the AutoClaude incident audit trail):
+
+```sh
+# Minimal teardown — stops service, removes binary + unit; preserves
+# /var/lib/plausiden-watchtower (incidents + worktrees + heartbeat)
+# AND /etc/plausiden-watchtower (operator env file).
+sudo ./deploy/uninstall.sh
+
+# Full wipe — also drops state, config, and the system user.
+sudo PURGE_STATE=1 PURGE_CONFIG=1 REMOVE_USER=1 ./deploy/uninstall.sh
+```
