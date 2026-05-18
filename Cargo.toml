@@ -38,3 +38,15 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"
 name = "plausiden-watchtower"
 path = "src/main.rs"
 required-features = ["journal"]
+
+# Lint policy — declarative, manifest-level. Any caller invoking `cargo
+# clippy` (no flags) sees the same gates that CI / deploy/install.sh /
+# the flake's `cargo build --release --features journal` enforce.
+# This subsumes the `-D warnings` flag callers previously had to
+# remember. `priority = -1` on the broad denies lets future tighter
+# allow-overrides win at the same lint without flag-precedence surprises.
+[lints.rust]
+warnings = { level = "deny", priority = -1 }
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
