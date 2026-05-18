@@ -199,7 +199,12 @@ cargo test --lib
 
 This is the path used in CI and on dev laptops.
 
-## Production deployment (systemd)
+## Production deployment
+
+Two paths: `deploy/install.sh` (cargo + systemd; works anywhere) or
+`flake.nix` (NixOS module; reproducible, declarative).
+
+### Path 1 — `deploy/install.sh` (cargo + systemd)
 
 Drop-in installer at `deploy/install.sh`. Idempotent: re-running just
 refreshes the binary + restarts. Safe after `git pull`.
@@ -248,3 +253,50 @@ sudo ./deploy/uninstall.sh
 # Full wipe — also drops state, config, and the system user.
 sudo PURGE_STATE=1 PURGE_CONFIG=1 REMOVE_USER=1 ./deploy/uninstall.sh
 ```
+
+### Path 2 — `flake.nix` + `nixosModules.default`
+
+For NixOS hosts, the flake provides a typed module that mirrors the
+systemd unit's hardening flags and exposes the alert sinks as Nix
+options:
+
+```nix
+{
+  inputs.plausiden-watchtower.url = "github:thepictishbeast/plausiden-watchtower";
+
+  outputs = { self, nixpkgs, plausiden-watchtower, ... }: {
+    nixosConfigurations.my-vps = nixpkgs.lib.nixosSystem {
+      modules = [
+        plausiden-watchtower.nixosModules.default
+        ({ ... }: {
+          services.plausiden-watchtower = {
+            enable = true;
+            # Sensitive bits — load from a SOPS-nix output or
+            # similar; the value is given to systemd as
+            # `EnvironmentFile=` so it never lives in the Nix store.
+            extraEnvironmentFile = "/run/secrets/plausiden-watchtower.env";
+
+            ntfy = {
+              url = "https://ntfy.example.com";
+              topic = "sacredvote-watchtower";
+            };
+            email.to = "ops@example.com";
+
+            autoClaude = {
+              enable = false;   # default-OFF; flip carefully.
+              rules = [ "fatal_any" "error_burst_per_chain" ];
+              projectMap = {
+                REGISTRATION = "/srv/sacredvote";
+                AUTH = "/srv/sacredvote";
+              };
+            };
+          };
+        })
+      ];
+    };
+  };
+}
+```
+
+`nix flake check` runs build + clippy `--features journal --deny warnings`
++ tests + rustfmt — same gates as the local `deploy/install.sh` path.

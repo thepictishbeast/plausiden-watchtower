@@ -10,7 +10,24 @@ no commit has reached `SHIP-DECISION:` status yet).
 
 ## [Unreleased]
 
-### Added (LOOP-V3.1#89, #90)
+### Added (LOOP-V3.1#89, #90, #91)
+- `flake.nix` (#91) — second deployment path alongside the
+  `deploy/install.sh` cargo+systemd flow. Provides:
+  - `packages.default` — release binary built via `crane` with
+    `--features journal` and a pinned Rust 1.83.0 toolchain.
+  - `apps.default` — `nix run` entrypoint.
+  - `devShells.default` — Rust toolchain + `cargo-watch` +
+    `cargo-edit` + `rust-analyzer`.
+  - `checks.*` — build, clippy `--features journal --deny warnings`,
+    cargo test, rustfmt.
+  - `nixosModules.default` — typed NixOS module mirroring the
+    hardening directives in `deploy/systemd/plausiden-watchtower.service`.
+    Exposes `services.plausiden-watchtower.{units, heartbeat, ntfy,
+    email, autoClaude, logLevel, extraEnvironmentFile}` as options.
+    Sensitive tokens stay outside the Nix store via
+    `extraEnvironmentFile` → systemd `EnvironmentFile=` (point at a
+    SOPS-nix output or hand-managed `/etc/...`).
+
 - `deploy/systemd/plausiden-watchtower.service` — hardened systemd
   unit. Dedicated `watchtower` system user with
   `SupplementaryGroups=systemd-journal` so the spawned `journalctl -f`
