@@ -243,17 +243,27 @@ mod tests {
     }
 
     /// Same noexec-aware temp dir picker as journal.rs uses.
+    ///
+    /// Adds a per-call monotonic counter on top of PID + nanosecond
+    /// timestamp so two parallel tests in the same process that land
+    /// in the same nanosecond don't collide and clobber each other's
+    /// argv.txt / stdin.txt — the cause of an intermittent
+    /// `page_invokes_mail_with_subject_and_recipient` flake under
+    /// `cargo test --release` on a loaded host.
     fn exec_tmp() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static SEQ: AtomicU64 = AtomicU64::new(0);
         let base = std::env::var("CARGO_MANIFEST_DIR")
             .map(|d| std::path::PathBuf::from(d).join("target").join("test-tmp"))
             .unwrap_or_else(|_| std::env::temp_dir());
         let dir = base.join(format!(
-            "watchtower-email-{}-{}",
+            "watchtower-email-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            SEQ.fetch_add(1, Ordering::Relaxed),
         ));
         std::fs::create_dir_all(&dir).unwrap();
         dir
