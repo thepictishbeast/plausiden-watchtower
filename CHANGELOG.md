@@ -10,6 +10,15 @@ no commit has reached `SHIP-DECISION:` status yet).
 
 ## [Unreleased]
 
+(No unreleased changes.)
+
+## [0.2.0] — 2026-05-19 (LOOP-V3.1#89-#93, #138, #216)
+
+Deployment-story release. v0.1 shipped the four-layer scaffold +
+self-monitoring; v0.2 closes the ops surface (cargo+systemd path,
+Nix flake path, uninstall, lint policy, ci.sh local gate, flake
+test flake collision fix).
+
 ### Added (LOOP-V3.1#89, #90, #91)
 - `flake.nix` (#91) — second deployment path alongside the
   `deploy/install.sh` cargo+systemd flow. Provides:
@@ -52,6 +61,37 @@ no commit has reached `SHIP-DECISION:` status yet).
   across all modules + `cargo audit` baseline established (173 deps /
   0 advisories). `cargo clippy --all-targets -- -D warnings` was already
   clean.
+- **Manifest-level `[lints]` policy** (LOOP-V3.1#93, `1b77437`).
+  Migrated the `-D warnings` gate from invocation-time flag into
+  `[lints.rust]` / `[lints.clippy]` deny-all at manifest level. Plain
+  `cargo clippy` AND `cargo build` (NO `-D warnings` flag) now exit
+  clean against the deny gate — the policy is part of the project
+  contract, not an external script's responsibility. Sibling commits
+  on sacredvote-axum-poc (#94) and sacredvote-civic-news (#95) close
+  the 3-repo trilogy.
+
+### Fixed
+- **EmailSink::exec_tmp() same-nanosecond collision** (LOOP-V3.1#138,
+  `6761fd8`). The `page_invokes_mail_with_subject_and_recipient` test
+  flaked intermittently because two parallel tokio test runs could
+  land on the same nanosecond stamp + same PID seed, collide on the
+  same temp dir path, and clobber each other's `argv.txt`. Fixed via
+  an `AtomicU64 SEQ` counter appended to the path; 5/5 stress-pass
+  iterations after fix. Adds a third entropy source (pid +
+  nanosecond + monotonic counter) to make collision under any
+  parallelism mathematically negligible.
+
+### Tooling
+- **`scripts/ci.sh` local 5-gate runner** (LOOP-V3.1#216, `06e0673`).
+  Sibling artifact to sacredvote-axum-poc/scripts/ci.sh (#207) and
+  sacredvote-civic-news/scripts/ci.sh. Same 5-gate shape across all
+  3 in-scope Rust crates (fmt + build + clippy + test + audit) so
+  operator habit `bash scripts/ci.sh && git push` works uniformly.
+  Watchtower-specific deviation: `--features journal` on all 4
+  cargo gates — the binary refuses to start without it per install.sh
+  + flake.nix; tests without `--features journal` would silently
+  skip 4 journal-gated cases. Verified at ship time: 67 unit tests
+  + 1 doctest pass, 173 deps audited, 0 vulnerabilities.
 
 ## [0.1.0] — 2026-05-17 (self-monitoring complete)
 

@@ -1,10 +1,10 @@
 [package]
 name = "plausiden-watchtower"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "BSL-1.1"
 repository = "https://github.com/thepictishbeast/plausiden-watchtower"
-description = "Tails per-chain structured logs from PlausiDen services, classifies issues, and dispatches alerts. Foundation for #316 (ntfy/email sinks) and #317 (auto-fix loop)."
+description = "Tails per-chain structured logs from PlausiDen services, classifies issues, and dispatches alerts. Foundation for #316 (ntfy/email sinks) and #317 (auto-fix loop). v0.2 closes the deployment story: cargo+systemd installer, Nix flake module, manifest-level lint policy, scripts/ci.sh local 5-gate runner. 67 unit tests + 1 doctest, 0 known-vulnerable deps."
 readme = "README.md"
 
 [features]
